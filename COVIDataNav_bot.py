@@ -8,30 +8,31 @@ Acepta 6 comandos:
 /start - Muestra la información general del bot y da una explicación del funcionamiento
 /ver <localdiad> - Envía los casos positivos en el último día, los últimos 15 días y los
                    casos desde el inicio de la pandemia junto con una gráfica de evolución para la localidad elegida.
-/configurar <localidad> <hora entre 0 y 23> - Permite configurar un envío diario de los datos que devuelve /ver a una hora elegida (entre 0 y 23)
-/desconfigurar - Elimina el envío diario
+Deshabilitado -- /configurar <localidad> <hora entre 0 y 23> - Permite configurar un envío diario de los datos que devuelve /ver a una hora elegida (entre 0 y 23)
+Deshabilitado -- /desconfigurar - Elimina el envío diario
 /info - Muestra información sobre el Bot
 /help - Muestra la lista de comandos
 
-Para identificar un municipio desde la entrada de un usuario se usa la métrica edit_distance
-de nltk. En las primeras pruebas ha sido capaz de identificar todos los municipios siempre
-que sea una entrada decente.
+Para identificar un municipio desde la entrada de un usuario se usa get_close_matches
+de difflib.
 
-Versión 1.0
+Versión 1.1
 
 Daniel Enériz Orta
 """
 
 import logging
-from nltk import edit_distance
+from difflib import get_close_matches
 from os import listdir
+from parse import *
 import numpy as np
 import json
-from datetime import time
+import datetime as dt
+import time
 import pytz
 from random import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, JobQueue
 
 # Enable logging
 logging.basicConfig(
@@ -52,14 +53,9 @@ for mun in municipios:
 # Nos permite identificar los 4 municipio de la lista más 'similares' al de la entrada
 def Identifica_municipio(mun_in):
 
-    distancia = np.empty_like(municipios) # Array de valores asociados a los municipios, cuanto más bajo mas cercano a la entrada original
+    mun_cercanos = get_close_matches(mun_in.upper(), municipios)
 
-    for i in range(len(municipios)): # La calculamos con la función de nltk
-        distancia[i] = edit_distance(mun_in.upper(), municipios[i])
-
-    mun_cercanos = municipios[distancia.argsort()[:4]] # Escogemos los 4 primeros, para dar 4 opciones
-
-    mun_orig_cercanos = []
+    mun_orig_cercanos=[]
     
     for i in range(len(mun_cercanos)): # Llevamos la opciones a la lista de munuicipio originales
         for mun in orig_municipios:
@@ -95,12 +91,12 @@ def info(update, context):
                               " en las localdiades navarras junto con los casos acumulados desde el"
                               " inicio la de pandemia\.\nEl objetivo principal de este bot es acercar los datos"
                               " a la ciudadanía\. Para ello he desarrollado un pequeño programa que se encarga"
-                              " de preprar los datos para que sean consultables através de este canal\."
+                              " de preparar los datos para que sean consultables através de este canal\."
                               "\nPara más infromación sobre el código y la forma de tratar los datos puedes acceder"
                               " a este [enlace](http://bit.ly/COVIDataNav-GitHub)\.\n\n"
                               "Si tienes experiencia con el tratamiento de datos o con la comunicaión de estos"
                               " através de este u otros canales y quieres colaborar no dudes en ponerte en contacto"
-                              " con mi através de este [enlace](https://bit.ly/3iSWyUg)\.\n\n"
+                              " con mí através de este [enlace](https://bit.ly/3iSWyUg)\.\n\n"
                               "El autor no garantiza ni asume ninguna responsabilidad legal o de cualquier otro tipo"
                               " por la exactitud, carácter integral o la utilidad de cualquier información, mecanismo,"
                               " producto, o proceso divulgado\.", parse_mode='MarkdownV2')
@@ -118,23 +114,111 @@ def help_command(update, context):
 
 def ver(update, context):
 
+    if len(context.args) != 1:
+        update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona')
+        return
+
+    with open('./ver_history.txt', 'a') as file: # Guardamos las peticiones
+        file.write('{} {}\n'.format(time.strftime('%Y-%m-%dT%H:%M:%S'), context.args[0]))
+
+
     # args[0] should contain the time for the timer in seconds
-    municipio = Identifica_municipio(context.args[0])[0]
+    municipios = Identifica_municipio(context.args[0])
+
+    if len(municipios) == 0:
+        update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona\n\n Si no aparecen opciones para tu locaclidad es que no se ha registrado ningún caso.')
+        return
+
+    if len(municipios) > 1:
+        if len(municipios) == 2:
+
+            keyboard = [
+                [
+                    InlineKeyboardButton(municipios[0], callback_data=municipios[0]),
+                    InlineKeyboardButton(municipios[1], callback_data=municipios[1]),
+                ],
+            ]
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            update.message.reply_text('*Elige entre estas opciones*\.\nSi tu localidad no aparece y has escrito bien el nombre es que aún no se ha registrado ningún caso\.', reply_markup=reply_markup, parse_mode='MarkdownV2')
+
+        elif len(municipios) == 3:
+
+            keyboard = [
+                [
+                    InlineKeyboardButton(municipios[0], callback_data=municipios[0]),
+                    InlineKeyboardButton(municipios[1], callback_data=municipios[1]),
+                ],
+                [ InlineKeyboardButton(municipios[2], callback_data=municipios[2]),]
+            ]
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            update.message.reply_text('*Elige entre estas opciones*\.\nSi tu localidad no aparece y has escrito bien el nombre es que aún no se ha registrado ningún caso\.', reply_markup=reply_markup, parse_mode='MarkdownV2')
+        
+        else:
+
+            keyboard = [
+                [
+                    InlineKeyboardButton(municipios[0], callback_data=municipios[0]),
+                    InlineKeyboardButton(municipios[1], callback_data=municipios[1]),
+                ],
+                [
+                    InlineKeyboardButton(municipios[2], callback_data=municipios[2]),
+                    InlineKeyboardButton(municipios[3], callback_data=municipios[3]),
+                ],
+            ]
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            update.message.reply_text('*Elige entre estas opciones*\.\nSi tu localidad no aparece y has escrito bien el nombre es que aún no se ha registrado ningún caso\.', reply_markup=reply_markup, parse_mode='MarkdownV2')
+
+    else:
+        municipio = municipios[0]
+        with open('./Datos_municipios/{}/{}_data.json'.format(municipio, municipio)) as json_file:
+            data = json.load(json_file)
+
+            update.message.reply_text('Datos de {} del {}:\n'
+                                        'Casos en el último día: {}\n'
+                                        'Casos en los últimos 15 días: {}\n'
+                                        'Casos acumulados desde el incio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
+
+        update.message.reply_photo(open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
+
+
+def button(update, context):
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query.answer()
+
+    municipio = query.data
 
     with open('./Datos_municipios/{}/{}_data.json'.format(municipio, municipio)) as json_file:
         data = json.load(json_file)
 
-        update.message.reply_text('Datos de {} del {}:\n'
+        query.edit_message_text(text = 'Datos de {} del {}:\n'
                                     'Casos en el último día: {}\n'
                                     'Casos en los últimos 15 días: {}\n'
                                     'Casos acumulados desde el incio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
+    
+    query.message.reply_photo(open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
 
-    update.message.reply_photo(open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
 
 
 def configurar(update, context):
 
-    """Add a job to the queue."""
+    update.message.reply_text('He encontrado problemas en esta función y he decidido desactivarla temporalmente.')
+    
+    """
+
+    if len(context.args) != 2:
+        update.message.reply_text('Uso: /configurar <localidad> <hora (entre 0 y 23)>\nPor ejemplo: /configurar Pamplona 10')
+        return
+
+    #Add a job to the queue
     chat_id = update.message.chat_id
     
     # args[0] should contain the time for the timer in seconds
@@ -144,7 +228,13 @@ def configurar(update, context):
         update.message.reply_text('Tienes que mandar una hora entre 0 y 23')
         return
 
-    hora = time(hour=int(context.args[1]), minute=int(random()*5), tzinfo=pytz.timezone("Europe/Madrid"))
+    with open('./configurar_history.txt', 'a') as file: # Guardamos las peticiones
+        file.write('{} {} {} {}\n'.format(time.strftime('%Y-%m-%dT%H:%M:%S'), municipio, context.args[0], context.args[1]))
+
+    with open('./active_jobs.txt', 'a') as file: # Guardamos las peticiones
+        file.write('{} {} {}\n'.format(chat_id, municipio, context.args[1]))
+
+    hora = dt.time(hour=int(context.args[1]), minute=int(random()*5), tzinfo=pytz.timezone("Europe/Madrid"))
 
     # Add job to queue and stop current one if there is a timer already
     if 'job' in context.chat_data:
@@ -155,17 +245,36 @@ def configurar(update, context):
 
     update.message.reply_text('Te mandaré los datos de {} todos los días sobre las {}'.format(municipio, hora.strftime('%H:00')))
 
+    """
+
 def desconfigurar(update, context):
     """Remove the job if the user changed their mind."""
+
+    update.message.reply_text('He encontrado problemas en esta función y he decidido desactivarla temporalmente.')
+
+    """
+    
     if 'job' not in context.chat_data:
         update.message.reply_text('No tienes ningún municipio configurado')
         return
+
+    with open('./active_jobs.txt', 'r') as file: # Guardamos las peticiones
+        lines = file.readlines()
+        for i in range(len(lines)):
+            if str(update.message.chat_id) in lines[i]:
+                del(lines[i])
+                break
+    
+    with open('./active_jobs.txt', 'w+') as file: # Guardamos las peticiones
+        for line in lines:
+            file.write(line)
 
     job = context.chat_data['job']
     job.schedule_removal()
     del context.chat_data['job']
 
     update.message.reply_text('Municipio desconfigurado correctamente')
+    """
 
 def mandar_configurado(context):
     job = context.job
@@ -189,7 +298,6 @@ def main():
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
     updater = Updater("TOKEN", use_context=True)
-
     
 
     # Get the dispatcher to register handlers
@@ -202,6 +310,7 @@ def main():
     dp.add_handler(
         CommandHandler("ver", ver, pass_args=True)
     )
+    dp.add_handler(CallbackQueryHandler(button))
     dp.add_handler(
         CommandHandler("configurar", configurar, pass_args=True, pass_chat_data=True)
     )
