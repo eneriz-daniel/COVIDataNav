@@ -1,5 +1,7 @@
 # Introducción
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
 El objetivo que tengo con COVIDataNav es acercar los datos que publica el Gobierno de Navarra en su página de [Gobierno Abierto de Navarra](https://gobiernoabierto.navarra.es/) sobre las [PCRs postivas distribuidas por municipios](https://gobiernoabierto.navarra.es/es/open-data/datos/positivos-covid-19-por-pcr-distruidos-por-municipio).
 
 Para ello he escrito tres programas:
