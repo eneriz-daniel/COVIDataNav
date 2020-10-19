@@ -16,7 +16,7 @@ Deshabilitado -- /desconfigurar - Elimina el envío diario
 Para identificar un municipio desde la entrada de un usuario se usa get_close_matches
 de difflib.
 
-Versión 1.1
+Versión 1.1.1
 
 Daniel Enériz Orta
 """
@@ -76,7 +76,7 @@ def start(update, context):
                               "Puedes usar el comando /ver `<localidad>` para que te muestre una gráfica con la *evolución"
                               " del número de casos* en esa localidad y  los *casos confirmados en el último día y en los últimos"
                               " 15 días*\.\n"
-                              "Si quieres recibir esa información cada vez que el Gobierno de Navarra la acualice puedes usar el"
+                              "Si quieres recibir esa información cada vez que el Gobierno de Navarra la actualice puedes usar el"
                               " comando /configurar `<localidad>` `<hora entre 0 y 23>` y te lo mandaré diariamente a la hora que elijas\.\n\n"
                               "Para mas información sobre los datos y sobre el bot usa el comando /info\. Usando /help te mandaré la lista de comandos disponibles\.", parse_mode='MarkdownV2')
 
@@ -88,15 +88,15 @@ def info(update, context):
                               "ilicados por el Gobierno de Navarra* en este [link](https://gobiernoabierto.navarra.es/es/open-data/datos/positivos-covid-19-por-pcr-distruidos-por-municipio)\.\n\n"
                               "Si consultas la página verás que tienen colgado un documento `\.csv`"
                               " que actualizan diariamente con información sobre las PCRs positivas"
-                              " en las localdiades navarras junto con los casos acumulados desde el"
+                              " en las localidades navarras junto con los casos acumulados desde el"
                               " inicio la de pandemia\.\nEl objetivo principal de este bot es acercar los datos"
                               " a la ciudadanía\. Para ello he desarrollado un pequeño programa que se encarga"
-                              " de preparar los datos para que sean consultables através de este canal\."
-                              "\nPara más infromación sobre el código y la forma de tratar los datos puedes acceder"
+                              " de preparar los datos para que sean consultables a través de este canal\."
+                              "\nPara más información sobre el código y la forma de tratar los datos puedes acceder"
                               " a este [enlace](http://bit.ly/COVIDataNav-GitHub)\.\n\n"
-                              "Si tienes experiencia con el tratamiento de datos o con la comunicaión de estos"
-                              " através de este u otros canales y quieres colaborar no dudes en ponerte en contacto"
-                              " con mí através de este [enlace](https://bit.ly/3iSWyUg)\.\n\n"
+                              "Si tienes experiencia con el tratamiento de datos o con la comunicación de estos"
+                              " a través de este u otros canales y quieres colaborar no dudes en ponerte en contacto"
+                              " con mí a través de este [enlace](https://bit.ly/3iSWyUg)\.\n\n"
                               "El autor no garantiza ni asume ninguna responsabilidad legal o de cualquier otro tipo"
                               " por la exactitud, carácter integral o la utilidad de cualquier información, mecanismo,"
                               " producto, o proceso divulgado\.", parse_mode='MarkdownV2')
@@ -108,25 +108,30 @@ def help_command(update, context):
                                "/ver `<localidad>` - Muestra los datos de una localidad en concreto\n"
                                "/configurar `<localidad>` `<hora entre 0 y 23>` - Permite configurar una localidad para recibir las actualizaciones en los datos cada vez que el Gobierno de Navarra las actualiza\n"
                                "/desconfigurar - Permite eliminar el aviso diario de la localidad configurada previamente\n"
-                               "/info - Mustra información sobre los datos y sobre el bot\n"
+                               "/info - Muestra información sobre los datos y sobre el bot\n"
                                "/help - Muestra la lista de comandos disponibles", parse_mode='MarkdownV2')
 
 
 def ver(update, context):
 
-    if len(context.args) != 1:
+    if len(context.args) == 0:
         update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona')
         return
 
+    for arg in context.args:
+        if '<' or '>' in arg:
+            update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona')
+        return
+
     with open('./ver_history.txt', 'a') as file: # Guardamos las peticiones
-        file.write('{} {}\n'.format(time.strftime('%Y-%m-%dT%H:%M:%S'), context.args[0]))
+        file.write('{} {}\n'.format(time.strftime('%Y-%m-%dT%H:%M:%S'), ' '.join(context.args)))
 
 
     # args[0] should contain the time for the timer in seconds
-    municipios = Identifica_municipio(context.args[0])
+    municipios = Identifica_municipio(' '.join(context.args))
 
     if len(municipios) == 0:
-        update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona\n\n Si no aparecen opciones para tu locaclidad es que no se ha registrado ningún caso.')
+        update.message.reply_text('Uso: /ver <localidad>\nPor ejemplo: /ver Pamplona\n\n Si no aparecen opciones para tu localidad es que no se ha registrado ningún caso.')
         return
 
     if len(municipios) > 1:
@@ -182,7 +187,7 @@ def ver(update, context):
             update.message.reply_text('Datos de {} del {}:\n'
                                         'Casos en el último día: {}\n'
                                         'Casos en los últimos 15 días: {}\n'
-                                        'Casos acumulados desde el incio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
+                                        'Casos acumulados desde el inicio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
 
         update.message.reply_photo(open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
 
@@ -202,7 +207,7 @@ def button(update, context):
         query.edit_message_text(text = 'Datos de {} del {}:\n'
                                     'Casos en el último día: {}\n'
                                     'Casos en los últimos 15 días: {}\n'
-                                    'Casos acumulados desde el incio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
+                                    'Casos acumulados desde el inicio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
     
     query.message.reply_photo(open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
 
@@ -287,9 +292,10 @@ def mandar_configurado(context):
         context.bot.send_message(chat_id, 'Datos de {} del {}:\n'
                                           'Casos en el último día: {}\n'
                                           'Casos en los últimos 15 días: {}\n'
-                                          'Casos acumulados desde el incio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
+                                          'Casos acumulados desde el inicio: {}'.format(data['Municipio'], data['Fecha'], data['Datos']['CasosUltimoDia'], data['Datos']['Casos15dias'], data['Datos']['CasosAcum']))
 
     context.bot.send_photo(chat_id, open('./Datos_municipios/{}/{}_plot.png'.format(municipio,municipio),'rb'))
+
 
 
 def main():
